@@ -1,15 +1,18 @@
-use bevy::{prelude::*, window::{PrimaryWindow, WindowResolution}};
-//use bevy_inspector_egui::quick::WorldInspectorPlugin;
+use bevy::{prelude::*, window::{PrimaryWindow, WindowResolution}, transform::commands};
+use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use rand::{thread_rng, Rng};
+use bevy_despawn_with::DespawnAllCommandsExt;
 
 #[derive(States, PartialEq, Eq, Debug, Clone, Hash, Default)]
 enum GameState {
     #[default]
+    SafeClick,
     InGame,
     GameOver,
 }
 
 const CLICK_AREA_SIZE: f32 = 20.0;
+
 
 // const EAZY_BOARD_SIZE: Vec2 = Vec2::new(10.0, 10.0);
 // const EAZY_BOMB_COUNT: u8 = 10;
@@ -24,13 +27,20 @@ const EXPERT_BOARD_SIZE: Vec2 = Vec2::new(16.0, 30.0);
 const EXPERT_BOMB_COUNT: u8 = 99;
 
 #[derive(Resource)]
-struct EmptyCords { cords: Vec<(u8, u8)> }
+struct Empty { cords: Vec<(u8, u8)> }
 
-#[derive(Component)]
+#[derive(Resource)]
+struct Reset { position: (f32, f32) }
+
+#[derive(Resource)]
+struct Safe { cords: (u8, u8) }
+
+
 #[derive(Debug)]
 #[derive(Resource)]
 #[derive(Reflect)]
 // #[reflect(Component)]
+#[derive(Component)]
 pub struct Tile { 
     x: u8,
     y: u8,
@@ -53,7 +63,10 @@ fn main() {
     App::new()
         .register_type::<Tile>()
         .register_type::<TileType>()
-        .insert_resource(EmptyCords{cords: vec!()})
+        .insert_resource(Empty{cords: vec!()})
+        .insert_resource(Safe{cords: (0,0)})
+        .insert_resource(Reset{position: (0.0, 0.0)})
+        .insert_resource(ClearColor(Color::rgb_u8(164, 177, 197)))
         .add_state::<GameState>()
         .add_plugins(
             DefaultPlugins
@@ -62,21 +75,23 @@ fn main() {
                     primary_window: Some(
                         Window{
                             title: "Minesweeper".to_string(),
-                            resolution: WindowResolution::new(HARD_BOARD_SIZE.y * 19.0 * 2.0, HARD_BOARD_SIZE.x * 19.0 * 2.0),
+                            resolution: WindowResolution::new(HARD_BOARD_SIZE.y * 19.0 * 2.0, HARD_BOARD_SIZE.x * 19.0 * 2.0 + 19.0 * 2.0),
                             fit_canvas_to_parent: true,
+                            resizable: false,
                             ..default()
                         }),
                     ..default()
                 })
         )
         //.add_plugin(WorldInspectorPlugin::new())
-        .add_startup_systems(
+        .add_startup_system(spawn_camera)
+        .add_systems(
             (
-            spawn_camera,
+            despawn_tiles,
+            apply_system_buffers,
             spawn_tiles,
             apply_system_buffers,
-            set_bombs
-            ).chain()
+            ).chain().in_schedule(OnEnter(GameState::SafeClick))
         )
         .add_systems(
             (
@@ -85,9 +100,17 @@ fn main() {
             tile_check,
             apply_system_buffers,
             zero_check
-            ).in_set(OnUpdate(GameState::InGame))
+            ).chain().in_set(OnUpdate(GameState::InGame))
         )
-        .add_system(game_over.in_schedule(OnExit(GameState::InGame)))
+        .add_system(first_click.in_set(OnUpdate(GameState::SafeClick)))
+        .add_systems(
+            (
+                set_bombs,
+                apply_system_buffers
+            ).chain().in_schedule(OnExit(GameState::SafeClick))
+        )
+        .add_system(game_over.in_schedule(OnEnter(GameState::GameOver)))
+        .add_system(reset_click_check)
         .run();
 }
 
@@ -112,11 +135,16 @@ pub fn spawn_camera(
     println!("Camera's Up!");
 }
 
+fn despawn_tiles(mut commands: Commands) {
+    commands.despawn_all::<With<Tile>>();
+}
+
 
 fn spawn_tiles(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     window: Query<&Window, With<PrimaryWindow>>,
+    mut reset_button: ResMut<Reset>
 ) {
     let window: &Window = window.get_single().unwrap();
     let mut x = 0;
@@ -137,7 +165,7 @@ fn spawn_tiles(
                     texture: asset_server.load("sprites/tile_unknown2.png"),
                     transform: Transform::from_xyz(
                         19.0 * 0.5 * 2.0 + j as f32 * 19.0 * 2.0,
-                        window.height() - 19.0 * 1.5 - i as f32 * 19.0 * 2.0 + 9.5, 
+                        window.height() - 19.0 * 1.5 - i as f32 * 19.0 * 2.0 + 9.5 - 19.0 * 2.0, 
                         0.0,
                     ).with_scale(Vec3::new(2.0, 2.0, 0.0)),
                     
@@ -148,19 +176,51 @@ fn spawn_tiles(
             ));
         }
     }
+    commands.spawn(
+    (
+       SpriteBundle {
+        texture: asset_server.load("sprites/reset2.png"),
+        transform: Transform::from_xyz(
+            19.0 * 0.5 * 2.0,
+            window.height() - 19.0, 
+            0.0,
+        ).with_scale(Vec3::new(2.0, 2.0, 0.0)),
+        
+        ..default()
+       }, 
+       Name::new("Reset".to_string()),
+    ));
+    reset_button.position = (19.0 * 0.5 * 2.0, window.height() - 19.0);
     println!("Spawned!");
 }
 
 
-fn generate_bomb_positions() -> Vec<(u8, u8)> {
+fn generate_bomb_positions(safe: (u8, u8)) -> Vec<(u8, u8)> {
     let mut rng = thread_rng();
     let mut selected: Vec<(u8, u8)> = Vec::new();
+    let mut safe_zone: Vec<(u8, u8)> = Vec::new();
     let mut i = HARD_BOMB_COUNT;
+    safe_zone.push(safe);
+    safe_zone.push((safe.0 - 1, safe.1 - 1));
+    safe_zone.push((safe.0, safe.1 - 1));
+    safe_zone.push((safe.0 + 1, safe.1 - 1));
+    safe_zone.push((safe.0 - 1, safe.1));
+    safe_zone.push((safe.0 + 1, safe.1));
+    safe_zone.push((safe.0 - 1, safe.1 + 1));
+    safe_zone.push((safe.0, safe.1 + 1));
+    safe_zone.push((safe.0 + 1, safe.1 + 1));
+    
 
     'outer: while i > 0 {
         let cords: (u8, u8) = (rng.gen_range(1..HARD_BOARD_SIZE.y as u8 + 1), rng.gen_range(1..HARD_BOARD_SIZE.x as u8 + 1));
         //println!("{:?}", selected);
         for x in selected.iter() {
+            if cords == *x {
+                //println!("{:?}", cords);
+                continue 'outer;
+            }
+        }
+        for x in safe_zone.iter() {
             if cords == *x {
                 //println!("{:?}", cords);
                 continue 'outer;
@@ -175,9 +235,12 @@ fn generate_bomb_positions() -> Vec<(u8, u8)> {
 
 fn set_bombs(
     mut tiles: Query<&mut Tile>,
+    safe: Res<Safe>,
+    
 ) {
     println!("There are {} Entities spawned!", tiles.iter().count());
-    let positions = generate_bomb_positions();
+    let positions = generate_bomb_positions(safe.cords);
+    
     
     for mut tile_bomb in tiles.iter_mut() {
         for cords in positions.iter(){
@@ -217,7 +280,8 @@ fn set_bombs(
             }
         }
     }
-    println!("Set!");
+    // println!("Set!");
+    
 }
 
 fn click_switch(
@@ -229,6 +293,7 @@ fn click_switch(
 ) {
     if buttons.just_pressed(MouseButton::Left) {
         if let Some(position) = window.get_single().unwrap().cursor_position() {
+        println!("{}", position);
             for (mut tile, g_transorm, mut image) in tiles.iter_mut() {
                 if tile.covered && !tile.flag {
                     let x = g_transorm.translation.x;
@@ -273,7 +338,7 @@ fn click_switch(
 fn tile_check(
     mut tiles: Query<(&mut Tile, &mut Handle<Image>)>,
     asset_server: Res<AssetServer>,
-    mut zeros: ResMut<EmptyCords>
+    mut zeros: ResMut<Empty>
 ) {
     for (tile1, mut image1) in tiles.iter_mut() {
         //println!("{}/{}", tile1.x, tile1.y);
@@ -299,7 +364,7 @@ fn tile_check(
 }
 
 fn zero_check(
-    mut zeros: ResMut<EmptyCords>,
+    mut zeros: ResMut<Empty>,
     mut tiles: Query<&mut Tile>
 ) {
     if !zeros.cords.is_empty(){
@@ -320,24 +385,67 @@ fn game_over(
     asset_server: Res<AssetServer>
 ) {
     for (tile, mut image) in tiles.iter_mut() {
-        if tile.covered {
-            if tile.tile_type == TileType::Bomb {
-                *image = asset_server.load("sprites/tile_bomb2.png")
-            } else {
-                match tile.num {
-                    0 => *image = asset_server.load("sprites/tile_empty2.png"),
-                    1 => *image = asset_server.load("sprites/tile_one2.png"),
-                    2 => *image = asset_server.load("sprites/tile_two2.png"),
-                    3 => *image = asset_server.load("sprites/tile_three2.png"),
-                    4 => *image = asset_server.load("sprites/tile_four2.png"),
-                    5 => *image = asset_server.load("sprites/tile_five2.png"),
-                    6 => *image = asset_server.load("sprites/tile_six2.png"),
-                    7 => *image = asset_server.load("sprites/tile_seven2.png"),
-                    8 => *image = asset_server.load("sprites/tile_eight2.png"),
-                    9 => *image = asset_server.load("sprites/tile_nine2.png"),
-                    _ => panic!(),
+        
+        if tile.covered && tile.tile_type == TileType::Bomb && !tile.flag{
+            *image = asset_server.load("sprites/tile_bomb2.png")
+        } //else {
+            //     match tile.num {
+            //         0 => *image = asset_server.load("sprites/tile_empty2.png"),
+            //         1 => *image = asset_server.load("sprites/tile_one2.png"),
+            //         2 => *image = asset_server.load("sprites/tile_two2.png"),
+            //         3 => *image = asset_server.load("sprites/tile_three2.png"),
+            //         4 => *image = asset_server.load("sprites/tile_four2.png"),
+            //         5 => *image = asset_server.load("sprites/tile_five2.png"),
+            //         6 => *image = asset_server.load("sprites/tile_six2.png"),
+            //         7 => *image = asset_server.load("sprites/tile_seven2.png"),
+            //         8 => *image = asset_server.load("sprites/tile_eight2.png"),
+            //         9 => *image = asset_server.load("sprites/tile_nine2.png"),
+            //         _ => panic!(),
+            //     }
+            // }
+        
+    }
+}
+
+fn first_click(
+    buttons: Res<Input<MouseButton>>,
+    window: Query<&Window>,
+    mut tiles: Query<(&mut Tile, &Transform)>,
+    mut safe: ResMut<Safe>,
+    mut next_state: ResMut<NextState<GameState>>,
+) {
+    if buttons.just_pressed(MouseButton::Left) {
+        if let Some(position) = window.get_single().unwrap().cursor_position() {
+            for (mut tile, g_transorm) in tiles.iter_mut() {
+                let x = g_transorm.translation.x;
+                let y = g_transorm.translation.y;
+                if (position.x > x - CLICK_AREA_SIZE && position.x < x + CLICK_AREA_SIZE) &&
+                   (position.y < y + CLICK_AREA_SIZE && position.y > y - CLICK_AREA_SIZE) {
+                    safe.cords = (tile.x, tile.y);
+                    tile.covered = false;
+                    next_state.set(GameState::InGame);
+
                 }
             }
         }
     }
 }
+
+fn reset_click_check(
+    buttons: Res<Input<MouseButton>>,
+    window: Query<&Window>,
+    mut next_state: ResMut<NextState<GameState>>,
+    reset: Res<Reset>
+) {
+    if buttons.just_pressed(MouseButton::Left) {
+        if let Some(position) = window.get_single().unwrap().cursor_position() {
+            println!("{}", position);
+            if (position.x > reset.position.0 - CLICK_AREA_SIZE && position.x < reset.position.0 + CLICK_AREA_SIZE) &&
+                (position.y < reset.position.1 + CLICK_AREA_SIZE && position.y > reset.position.1 - CLICK_AREA_SIZE) {
+            
+                next_state.set(GameState::SafeClick);
+            }
+        }
+    }
+}
+    
