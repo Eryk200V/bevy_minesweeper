@@ -1,11 +1,15 @@
+#![windows_subsystem = "windows"]
+
 use bevy::{prelude::*, window::{PrimaryWindow, WindowResolution}, transform::commands};
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use rand::{thread_rng, Rng};
 use bevy_despawn_with::DespawnAllCommandsExt;
+use bevy_asset_loader::prelude::*;
 
 #[derive(States, PartialEq, Eq, Debug, Clone, Hash, Default)]
 enum GameState {
     #[default]
+    AssetLoading,
     SafeClick,
     InGame,
     GameOver,
@@ -35,6 +39,56 @@ struct Reset { position: (f32, f32) }
 #[derive(Resource)]
 struct Safe { cords: (u8, u8) }
 
+
+#[derive(AssetCollection, Resource)]
+struct TileSprites {
+
+    #[asset(path = "sprites/tile_unknown2.png")]
+    unknown: Handle<Image>,
+
+    #[asset(path = "sprites/reset2.png")]
+    reset: Handle<Image>,
+
+    #[asset(path = "sprites/tile_exploded2.png")]
+    exploded: Handle<Image>,
+
+    #[asset(path = "sprites/tile_flag2.png")]
+    flag: Handle<Image>,
+
+    #[asset(path = "sprites/tile_bomb2.png")]
+    bomb: Handle<Image>,
+
+    #[asset(path = "sprites/tile_empty2.png")]
+    zero: Handle<Image>,
+
+    #[asset(path = "sprites/tile_one2.png")]
+    one: Handle<Image>,
+    
+    #[asset(path = "sprites/tile_two2.png")]
+    two: Handle<Image>,
+    
+    #[asset(path = "sprites/tile_three2.png")]
+    three: Handle<Image>,
+    
+    #[asset(path = "sprites/tile_four2.png")]
+    four: Handle<Image>,
+    
+    #[asset(path = "sprites/tile_five2.png")]
+    five: Handle<Image>,
+    
+    #[asset(path = "sprites/tile_six2.png")]
+    six: Handle<Image>,
+    
+    #[asset(path = "sprites/tile_seven2.png")]
+    seven: Handle<Image>,
+    
+    #[asset(path = "sprites/tile_eight2.png")]
+    eight: Handle<Image>,
+    
+    #[asset(path = "sprites/tile_nine2.png")]
+    nine: Handle<Image>,
+    
+}
 
 #[derive(Debug)]
 #[derive(Resource)]
@@ -68,6 +122,11 @@ fn main() {
         .insert_resource(Reset{position: (0.0, 0.0)})
         .insert_resource(ClearColor(Color::rgb_u8(164, 177, 197)))
         .add_state::<GameState>()
+        .add_loading_state(
+            LoadingState::new(GameState::AssetLoading)
+            .continue_to_state(GameState::SafeClick)
+        )
+        .add_collection_to_loading_state::<_, TileSprites>(GameState::AssetLoading)
         .add_plugins(
             DefaultPlugins
                 .set(ImagePlugin::default_nearest())
@@ -132,23 +191,22 @@ pub fn spawn_camera(
         },
         Name::new("Main Camera")
     ));
-    println!("Camera's Up!");
 }
 
 fn despawn_tiles(mut commands: Commands) {
     commands.despawn_all::<With<Tile>>();
 }
 
-
 fn spawn_tiles(
     mut commands: Commands,
-    asset_server: Res<AssetServer>,
     window: Query<&Window, With<PrimaryWindow>>,
-    mut reset_button: ResMut<Reset>
+    mut reset_button: ResMut<Reset>,
+    tile_sprites: Res<TileSprites>
 ) {
     let window: &Window = window.get_single().unwrap();
     let mut x = 0;
     
+    println!("{:?}", std::env::current_exe());
     for i in 0..HARD_BOARD_SIZE.x as u8 {
         for j in 0..HARD_BOARD_SIZE.y as u8 {
             x += 1;
@@ -162,7 +220,7 @@ fn spawn_tiles(
                     flag: false
                 },
                 SpriteBundle{
-                    texture: asset_server.load("sprites/tile_unknown2.png"),
+                    texture: tile_sprites.unknown.clone(),
                     transform: Transform::from_xyz(
                         19.0 * 0.5 * 2.0 + j as f32 * 19.0 * 2.0,
                         window.height() - 19.0 * 1.5 - i as f32 * 19.0 * 2.0 + 9.5 - 19.0 * 2.0, 
@@ -179,7 +237,7 @@ fn spawn_tiles(
     commands.spawn(
     (
        SpriteBundle {
-        texture: asset_server.load("sprites/reset2.png"),
+        texture: tile_sprites.reset.clone(),
         transform: Transform::from_xyz(
             19.0 * 0.5 * 2.0,
             window.height() - 19.0, 
@@ -288,7 +346,7 @@ fn click_switch(
     buttons: Res<Input<MouseButton>>,
     window: Query<&Window>,
     mut tiles: Query<(&mut Tile, &mut Transform, &mut Handle<Image>)>, 
-    asset_server: Res<AssetServer>,
+    tile_sprites: Res<TileSprites>,
     mut next_state: ResMut<NextState<GameState>>,
 ) {
     if buttons.just_pressed(MouseButton::Left) {
@@ -302,7 +360,7 @@ fn click_switch(
                        (position.y < y + CLICK_AREA_SIZE && position.y > y - CLICK_AREA_SIZE) {
                         tile.covered = false;
                         if tile.tile_type == TileType::Bomb {
-                            *image = asset_server.load("sprites/tile_exploded2.png");
+                            *image = tile_sprites.exploded.clone();
                             next_state.set(GameState::GameOver);
                         }
                     }
@@ -323,10 +381,10 @@ fn click_switch(
                         if !tile.flag {
                             tile.flag = true;
                             println!("Flaga up!");
-                            *image = asset_server.load("sprites/tile_flag2.png");
+                            *image = tile_sprites.flag.clone();
                         } else {
                             tile.flag = false;
-                            *image = asset_server.load("sprites/tile_unknown2.png");
+                            *image = tile_sprites.unknown.clone();
                         }
                     }
                 }
@@ -337,7 +395,7 @@ fn click_switch(
 
 fn tile_check(
     mut tiles: Query<(&mut Tile, &mut Handle<Image>)>,
-    asset_server: Res<AssetServer>,
+    tile_sprites: Res<TileSprites>,
     mut zeros: ResMut<Empty>
 ) {
     for (tile1, mut image1) in tiles.iter_mut() {
@@ -345,18 +403,18 @@ fn tile_check(
         if !tile1.covered && tile1.tile_type != TileType::Bomb {
             match tile1.num {
                 0 => {
-                    *image1 = asset_server.load("sprites/tile_empty2.png");
+                    *image1 = tile_sprites.zero.clone();
                     zeros.cords.push((tile1.x, tile1.y));
                 },
-                1 => *image1 = asset_server.load("sprites/tile_one2.png"),
-                2 => *image1 = asset_server.load("sprites/tile_two2.png"),
-                3 => *image1 = asset_server.load("sprites/tile_three2.png"),
-                4 => *image1 = asset_server.load("sprites/tile_four2.png"),
-                5 => *image1 = asset_server.load("sprites/tile_five2.png"),
-                6 => *image1 = asset_server.load("sprites/tile_six2.png"),
-                7 => *image1 = asset_server.load("sprites/tile_seven2.png"),
-                8 => *image1 = asset_server.load("sprites/tile_eight2.png"),
-                9 => *image1 = asset_server.load("sprites/tile_nine2.png"),
+                1 => *image1 = tile_sprites.one.clone(),
+                2 => *image1 = tile_sprites.two.clone(),
+                3 => *image1 = tile_sprites.three.clone(),
+                4 => *image1 = tile_sprites.four.clone(),
+                5 => *image1 = tile_sprites.five.clone(),
+                6 => *image1 = tile_sprites.six.clone(),
+                7 => *image1 = tile_sprites.seven.clone(),
+                8 => *image1 = tile_sprites.eight.clone(),
+                9 => *image1 = tile_sprites.nine.clone(),
                 _ => panic!(),
             }
         }
@@ -382,12 +440,12 @@ fn zero_check(
 
 fn game_over(
     mut tiles: Query<(&Tile, &mut Handle<Image>)>,
-    asset_server: Res<AssetServer>
+    tile_sprites: Res<TileSprites>
 ) {
     for (tile, mut image) in tiles.iter_mut() {
         
         if tile.covered && tile.tile_type == TileType::Bomb && !tile.flag{
-            *image = asset_server.load("sprites/tile_bomb2.png")
+            *image = tile_sprites.bomb.clone();
         } //else {
             //     match tile.num {
             //         0 => *image = asset_server.load("sprites/tile_empty2.png"),
