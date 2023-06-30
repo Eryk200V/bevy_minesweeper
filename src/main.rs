@@ -1,5 +1,7 @@
 #![windows_subsystem = "windows"]
 
+//cargo build --target=x86_64-pc-windows-gnu --release
+
 use bevy::{prelude::*, window::{PrimaryWindow, WindowResolution}, transform::commands};
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use rand::{thread_rng, Rng};
