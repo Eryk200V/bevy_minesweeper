@@ -2,8 +2,8 @@
 
 //cargo build --target=x86_64-pc-windows-gnu --release
 
-use bevy::{prelude::*, window::{PrimaryWindow, WindowResolution}, transform::commands};
-use bevy_inspector_egui::quick::WorldInspectorPlugin;
+use bevy::{prelude::*, window::{PrimaryWindow, WindowResolution}};
+//use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use rand::{thread_rng, Rng};
 use bevy_despawn_with::DespawnAllCommandsExt;
 use bevy_asset_loader::prelude::*;
@@ -18,28 +18,40 @@ enum GameState {
 }
 
 const CLICK_AREA_SIZE: f32 = 20.0;
+const TILE_SIZE: f32 = 19.0 * 2.0;
 
 
-// const EAZY_BOARD_SIZE: Vec2 = Vec2::new(10.0, 10.0);
-// const EAZY_BOMB_COUNT: u8 = 10;
+const EAZY_BOARD_SIZE: (u8, u8) = (10, 10);
+const EAZY_BOMB_COUNT: u8 = 10;
 
-// const MEDIUM_BOARD_SIZE: Vec2 = Vec2::new(12.0, 12.0);
-// const MEDIUM_BOMB_COUNT: u8 = 26;
+const MEDIUM_BOARD_SIZE: (u8, u8) = (12, 12);
+const MEDIUM_BOMB_COUNT: u8 = 26;
 
-const HARD_BOARD_SIZE: Vec2 = Vec2::new(15.0, 15.0);
+const HARD_BOARD_SIZE: (u8, u8) = (15, 15);
 const HARD_BOMB_COUNT: u8 = 40;
 
-const EXPERT_BOARD_SIZE: Vec2 = Vec2::new(16.0, 30.0);
+const EXPERT_BOARD_SIZE: (u8, u8) = (16, 30);
 const EXPERT_BOMB_COUNT: u8 = 99;
 
 #[derive(Resource)]
 struct Empty { cords: Vec<(u8, u8)> }
 
 #[derive(Resource)]
-struct Reset { position: (f32, f32) }
+struct ButtonPositions { 
+    eazy: (f32, f32),
+    medium: (f32, f32),
+    hard: (f32, f32),
+    expert: (f32, f32)
+}
 
 #[derive(Resource)]
 struct Safe { cords: (u8, u8) }
+
+#[derive(Resource)]
+struct MapInfo { 
+    board_size: (u8, u8),
+    bomb_count: u8, 
+}
 
 
 #[derive(AssetCollection, Resource)]
@@ -93,7 +105,6 @@ struct TileSprites {
 }
 
 #[derive(Debug)]
-#[derive(Resource)]
 #[derive(Reflect)]
 // #[reflect(Component)]
 #[derive(Component)]
@@ -105,6 +116,18 @@ pub struct Tile {
     covered: bool,
     flag: bool
 }
+
+#[derive(Component)]
+pub struct Button;
+
+
+// pub enum ButtonType {
+//     Eazy,
+//     Medium,
+//     Hard,
+//     Expert
+// }
+
 
 #[derive(Component)]
 #[derive(Reflect)]
@@ -121,7 +144,16 @@ fn main() {
         .register_type::<TileType>()
         .insert_resource(Empty{cords: vec!()})
         .insert_resource(Safe{cords: (0,0)})
-        .insert_resource(Reset{position: (0.0, 0.0)})
+        .insert_resource(ButtonPositions{
+            eazy: (0.0, 0.0),
+            medium: (0.0, 0.0),
+            hard: (0.0, 0.0),
+            expert: (0.0, 0.0)
+        })
+        .insert_resource(MapInfo{
+            board_size: EAZY_BOARD_SIZE,
+            bomb_count: EAZY_BOMB_COUNT
+        })
         .insert_resource(ClearColor(Color::rgb_u8(164, 177, 197)))
         .add_state::<GameState>()
         .add_loading_state(
@@ -136,7 +168,7 @@ fn main() {
                     primary_window: Some(
                         Window{
                             title: "Minesweeper".to_string(),
-                            resolution: WindowResolution::new(HARD_BOARD_SIZE.y * 19.0 * 2.0, HARD_BOARD_SIZE.x * 19.0 * 2.0 + 19.0 * 2.0),
+                            resolution: WindowResolution::new(EAZY_BOARD_SIZE.1 as f32 * TILE_SIZE, EAZY_BOARD_SIZE.0 as f32 * TILE_SIZE + TILE_SIZE),
                             fit_canvas_to_parent: true,
                             resizable: false,
                             ..default()
@@ -148,10 +180,11 @@ fn main() {
         .add_startup_system(spawn_camera)
         .add_systems(
             (
+            
             despawn_tiles,
             apply_system_buffers,
             spawn_tiles,
-            apply_system_buffers,
+            
             ).chain().in_schedule(OnEnter(GameState::SafeClick))
         )
         .add_systems(
@@ -168,16 +201,16 @@ fn main() {
             (
                 set_bombs,
                 apply_system_buffers
-            ).chain().in_schedule(OnExit(GameState::SafeClick))
+            ).chain().in_schedule(OnEnter(GameState::InGame))
         )
         .add_system(game_over.in_schedule(OnEnter(GameState::GameOver)))
-        .add_system(reset_click_check)
+        .add_system(button_click_check)
         .run();
 }
 
 pub fn spawn_camera(
     mut commands: Commands, 
-    window_query: Query<&Window, With<PrimaryWindow>>
+    window_query: Query<&Window>
 ) {
     let window = window_query.get_single().unwrap();
     println!("Resolution {:?}", window.resolution);
@@ -197,20 +230,26 @@ pub fn spawn_camera(
 
 fn despawn_tiles(mut commands: Commands) {
     commands.despawn_all::<With<Tile>>();
+    commands.despawn_all::<With<Button>>();
 }
 
 fn spawn_tiles(
     mut commands: Commands,
     window: Query<&Window, With<PrimaryWindow>>,
-    mut reset_button: ResMut<Reset>,
-    tile_sprites: Res<TileSprites>
+    mut buttons: ResMut<ButtonPositions>,
+    tile_sprites: Res<TileSprites>,
+    map_info: Res<MapInfo>
 ) {
     let window: &Window = window.get_single().unwrap();
     let mut x = 0;
+
+    let size_x = map_info.board_size.0;
+    let size_y = map_info.board_size.1;
+
     
     println!("{:?}", std::env::current_exe());
-    for i in 0..HARD_BOARD_SIZE.x as u8 {
-        for j in 0..HARD_BOARD_SIZE.y as u8 {
+    for i in 0..size_x {
+        for j in 0..size_y {
             x += 1;
             commands.spawn((
                 Tile{
@@ -224,11 +263,10 @@ fn spawn_tiles(
                 SpriteBundle{
                     texture: tile_sprites.unknown.clone(),
                     transform: Transform::from_xyz(
-                        19.0 * 0.5 * 2.0 + j as f32 * 19.0 * 2.0,
-                        window.height() - 19.0 * 1.5 - i as f32 * 19.0 * 2.0 + 9.5 - 19.0 * 2.0, 
+                        TILE_SIZE * 0.5 + j as f32 * TILE_SIZE,
+                        window.height() - TILE_SIZE - i as f32 * TILE_SIZE - TILE_SIZE * 0.5, 
                         0.0,
                     ).with_scale(Vec3::new(2.0, 2.0, 0.0)),
-                    
                     ..default()
                 },
                 
@@ -236,30 +274,87 @@ fn spawn_tiles(
             ));
         }
     }
+    //eazy button
     commands.spawn(
-    (
-       SpriteBundle {
-        texture: tile_sprites.reset.clone(),
-        transform: Transform::from_xyz(
-            19.0 * 0.5 * 2.0,
-            window.height() - 19.0, 
-            0.0,
-        ).with_scale(Vec3::new(2.0, 2.0, 0.0)),
-        
-        ..default()
-       }, 
-       Name::new("Reset".to_string()),
-    ));
-    reset_button.position = (19.0 * 0.5 * 2.0, window.height() - 19.0);
+        (
+            SpriteBundle {
+            texture: tile_sprites.reset.clone(),
+            transform: Transform::from_xyz(
+                TILE_SIZE * 0.5,
+                window.height() - TILE_SIZE * 0.5, 
+                0.0,
+            ).with_scale(Vec3::new(2.0, 2.0, 0.0)),
+            ..default()
+            },
+            Button,
+            Name::new("Reset".to_string()),
+        )
+    );
+    buttons.eazy = (TILE_SIZE * 0.5, window.height() - TILE_SIZE * 0.5);
+
+    //medium button
+    commands.spawn(
+        (
+            SpriteBundle {
+            texture: tile_sprites.reset.clone(),
+            transform: Transform::from_xyz(
+                TILE_SIZE * 0.5 + TILE_SIZE,
+                window.height() - TILE_SIZE * 0.5, 
+                0.0,
+            ).with_scale(Vec3::new(2.0, 2.0, 0.0)),
+            ..default()
+            },
+            Button,
+            Name::new("Reset".to_string()),
+        )
+    );
+    buttons.medium = (TILE_SIZE * 0.5 + TILE_SIZE, window.height() - TILE_SIZE * 0.5);
+
+    //hard button
+    commands.spawn(
+        (
+            SpriteBundle {
+            texture: tile_sprites.reset.clone(),
+            transform: Transform::from_xyz(
+                TILE_SIZE * 0.5 + 2.0 * TILE_SIZE,
+                window.height() - TILE_SIZE * 0.5, 
+                0.0,
+            ).with_scale(Vec3::new(2.0, 2.0, 0.0)),
+            ..default()
+            },
+            Button,
+            Name::new("Reset".to_string()),
+        )
+    );
+    buttons.hard = (TILE_SIZE * 0.5 + 2.0 * TILE_SIZE, window.height() - TILE_SIZE * 0.5);
+    
+    //expert button 
+    commands.spawn(
+        (
+            SpriteBundle {
+            texture: tile_sprites.reset.clone(),
+            transform: Transform::from_xyz(
+                TILE_SIZE * 0.5 + 3.0 * TILE_SIZE,
+                window.height() - TILE_SIZE * 0.5, 
+                0.0,
+            ).with_scale(Vec3::new(2.0, 2.0, 0.0)),
+            ..default()
+            },
+            Button,
+            Name::new("Reset".to_string()),
+        )
+    );
+    buttons.expert = (TILE_SIZE * 0.5 + 3.0 * TILE_SIZE, window.height() - TILE_SIZE * 0.5);
+
     println!("Spawned!");
 }
 
 
-fn generate_bomb_positions(safe: (u8, u8)) -> Vec<(u8, u8)> {
+fn generate_bomb_positions(safe: (u8, u8), map_size: (u8, u8), bomb_count: u8) -> Vec<(u8, u8)> {
     let mut rng = thread_rng();
     let mut selected: Vec<(u8, u8)> = Vec::new();
     let mut safe_zone: Vec<(u8, u8)> = Vec::new();
-    let mut i = HARD_BOMB_COUNT;
+    let mut i = bomb_count;
     safe_zone.push(safe);
     safe_zone.push((safe.0 - 1, safe.1 - 1));
     safe_zone.push((safe.0, safe.1 - 1));
@@ -272,7 +367,7 @@ fn generate_bomb_positions(safe: (u8, u8)) -> Vec<(u8, u8)> {
     
 
     'outer: while i > 0 {
-        let cords: (u8, u8) = (rng.gen_range(1..HARD_BOARD_SIZE.y as u8 + 1), rng.gen_range(1..HARD_BOARD_SIZE.x as u8 + 1));
+        let cords: (u8, u8) = (rng.gen_range(1..map_size.1 + 1), rng.gen_range(1..map_size.0 + 1));
         //println!("{:?}", selected);
         for x in selected.iter() {
             if cords == *x {
@@ -296,10 +391,11 @@ fn generate_bomb_positions(safe: (u8, u8)) -> Vec<(u8, u8)> {
 fn set_bombs(
     mut tiles: Query<&mut Tile>,
     safe: Res<Safe>,
-    
+    map_info: Res<MapInfo>
 ) {
     println!("There are {} Entities spawned!", tiles.iter().count());
-    let positions = generate_bomb_positions(safe.cords);
+
+    let positions = generate_bomb_positions(safe.cords, map_info.board_size, map_info.bomb_count);
     
     
     for mut tile_bomb in tiles.iter_mut() {
@@ -491,21 +587,61 @@ fn first_click(
     }
 }
 
-fn reset_click_check(
-    buttons: Res<Input<MouseButton>>,
-    window: Query<&Window>,
+fn button_click_check(
+    mouse_buttons: Res<Input<MouseButton>>,
+    mut window: Query<&mut Window>,
+    mut camera: Query<(&Camera, &mut Transform)>,
     mut next_state: ResMut<NextState<GameState>>,
-    reset: Res<Reset>
+    buttons: Res<ButtonPositions>,
+    mut map_info: ResMut<MapInfo>
 ) {
-    if buttons.just_pressed(MouseButton::Left) {
+    if mouse_buttons.just_pressed(MouseButton::Left) {
         if let Some(position) = window.get_single().unwrap().cursor_position() {
             println!("{}", position);
-            if (position.x > reset.position.0 - CLICK_AREA_SIZE && position.x < reset.position.0 + CLICK_AREA_SIZE) &&
-                (position.y < reset.position.1 + CLICK_AREA_SIZE && position.y > reset.position.1 - CLICK_AREA_SIZE) {
-            
+            if (position.x > buttons.eazy.0 - CLICK_AREA_SIZE && position.x < buttons.eazy.0 + CLICK_AREA_SIZE) &&
+                (position.y < buttons.eazy.1 + CLICK_AREA_SIZE && position.y > buttons.eazy.1 - CLICK_AREA_SIZE) {
+                map_info.board_size = EAZY_BOARD_SIZE;
+                map_info.bomb_count = EAZY_BOMB_COUNT;
+                window.single_mut().resolution = WindowResolution::new(EAZY_BOARD_SIZE.1 as f32 * TILE_SIZE, EAZY_BOARD_SIZE.0 as f32 * TILE_SIZE + TILE_SIZE);
+
+                let (_camera, mut transform) = camera.get_single_mut().unwrap();
+                let window = window.get_single().unwrap();
+                *transform = Transform::from_xyz(window.width() / 2.0, window.height() / 2.0, 0.0);
+                next_state.set(GameState::SafeClick);
+            } 
+            else if (position.x > buttons.medium.0 - CLICK_AREA_SIZE && position.x < buttons.medium.0 + CLICK_AREA_SIZE) &&
+                (position.y < buttons.medium.1 + CLICK_AREA_SIZE && position.y > buttons.medium.1 - CLICK_AREA_SIZE) {
+                map_info.board_size = MEDIUM_BOARD_SIZE;
+                map_info.bomb_count = MEDIUM_BOMB_COUNT;
+                window.single_mut().resolution = WindowResolution::new(MEDIUM_BOARD_SIZE.1 as f32 * TILE_SIZE, MEDIUM_BOARD_SIZE.0 as f32 * TILE_SIZE + TILE_SIZE);
+
+                let (_camera, mut transform) = camera.get_single_mut().unwrap();
+                let window = window.get_single().unwrap();
+                *transform = Transform::from_xyz(window.width() / 2.0, window.height() / 2.0, 0.0);
+                next_state.set(GameState::SafeClick);
+            }
+            else if (position.x > buttons.hard.0 - CLICK_AREA_SIZE && position.x < buttons.hard.0 + CLICK_AREA_SIZE) &&
+                (position.y < buttons.hard.1 + CLICK_AREA_SIZE && position.y > buttons.hard.1 - CLICK_AREA_SIZE) {
+                map_info.board_size = HARD_BOARD_SIZE;
+                map_info.bomb_count = HARD_BOMB_COUNT;
+                window.single_mut().resolution = WindowResolution::new(HARD_BOARD_SIZE.1 as f32 * TILE_SIZE, HARD_BOARD_SIZE.0 as f32 * TILE_SIZE + TILE_SIZE);
+
+                let (_camera, mut transform) = camera.get_single_mut().unwrap();
+                let window = window.get_single().unwrap();
+                *transform = Transform::from_xyz(window.width() / 2.0, window.height() / 2.0, 0.0);
+                next_state.set(GameState::SafeClick);
+            }
+            else if (position.x > buttons.expert.0 - CLICK_AREA_SIZE && position.x < buttons.expert.0 + CLICK_AREA_SIZE) &&
+                (position.y < buttons.expert.1 + CLICK_AREA_SIZE && position.y > buttons.expert.1 - CLICK_AREA_SIZE) {
+                map_info.board_size = EXPERT_BOARD_SIZE;
+                map_info.bomb_count = EXPERT_BOMB_COUNT;
+                window.single_mut().resolution = WindowResolution::new(EXPERT_BOARD_SIZE.1 as f32 * TILE_SIZE, EXPERT_BOARD_SIZE.0 as f32 * TILE_SIZE + TILE_SIZE);
+
+                let (_camera, mut transform) = camera.get_single_mut().unwrap();
+                let window = window.get_single().unwrap();
+                *transform = Transform::from_xyz(window.width() / 2.0, window.height() / 2.0, 0.0);
                 next_state.set(GameState::SafeClick);
             }
         }
     }
 }
-    
