@@ -57,11 +57,20 @@ struct MapInfo {
 #[derive(AssetCollection, Resource)]
 struct TileSprites {
 
+    #[asset(path = "sprites/eazy2.png")]
+    eazy: Handle<Image>,
+
+    #[asset(path = "sprites/medium2.png")]
+    medium: Handle<Image>,
+
+    #[asset(path = "sprites/hard2.png")]
+    hard: Handle<Image>,
+
+    #[asset(path = "sprites/expert2.png")]
+    expert: Handle<Image>,
+
     #[asset(path = "sprites/tile_unknown2.png")]
     unknown: Handle<Image>,
-
-    #[asset(path = "sprites/reset2.png")]
-    reset: Handle<Image>,
 
     #[asset(path = "sprites/tile_exploded2.png")]
     exploded: Handle<Image>,
@@ -278,7 +287,7 @@ fn spawn_tiles(
     commands.spawn(
         (
             SpriteBundle {
-            texture: tile_sprites.reset.clone(),
+            texture: tile_sprites.eazy.clone(),
             transform: Transform::from_xyz(
                 TILE_SIZE * 0.5,
                 window.height() - TILE_SIZE * 0.5, 
@@ -296,7 +305,7 @@ fn spawn_tiles(
     commands.spawn(
         (
             SpriteBundle {
-            texture: tile_sprites.reset.clone(),
+            texture: tile_sprites.medium.clone(),
             transform: Transform::from_xyz(
                 TILE_SIZE * 0.5 + TILE_SIZE,
                 window.height() - TILE_SIZE * 0.5, 
@@ -314,7 +323,7 @@ fn spawn_tiles(
     commands.spawn(
         (
             SpriteBundle {
-            texture: tile_sprites.reset.clone(),
+            texture: tile_sprites.hard.clone(),
             transform: Transform::from_xyz(
                 TILE_SIZE * 0.5 + 2.0 * TILE_SIZE,
                 window.height() - TILE_SIZE * 0.5, 
@@ -332,7 +341,7 @@ fn spawn_tiles(
     commands.spawn(
         (
             SpriteBundle {
-            texture: tile_sprites.reset.clone(),
+            texture: tile_sprites.expert.clone(),
             transform: Transform::from_xyz(
                 TILE_SIZE * 0.5 + 3.0 * TILE_SIZE,
                 window.height() - TILE_SIZE * 0.5, 
