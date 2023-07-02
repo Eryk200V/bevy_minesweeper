@@ -224,6 +224,7 @@ pub fn spawn_camera(
 ) {
     let window = window_query.get_single().unwrap();
     println!("Resolution {:?}", window.resolution);
+    
 
     commands.spawn((
         Camera2dBundle {
