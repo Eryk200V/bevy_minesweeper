@@ -48,9 +48,9 @@ struct ButtonPositions {
 struct Safe { cords: (u8, u8) }
 
 #[derive(Resource)]
-struct MapInfo { 
-    board_size: (u8, u8),
-    bomb_count: u8, 
+pub struct MapInfo { 
+    pub board_size: (u8, u8),
+    pub bomb_count: u8, 
 }
 
 
@@ -219,7 +219,8 @@ fn main() {
 
 pub fn spawn_camera(
     mut commands: Commands, 
-    window_query: Query<&Window>
+    mut window_query: Query<&mut Window>,
+    map_info: ResMut<MapInfo>
 ) {
     let window = window_query.get_single().unwrap();
     println!("Resolution {:?}", window.resolution);
@@ -235,6 +236,8 @@ pub fn spawn_camera(
         },
         Name::new("Main Camera")
     ));
+    
+    window_query.single_mut().resolution = WindowResolution::new(map_info.board_size.1 as f32 * TILE_SIZE, map_info.board_size.0 as f32 * TILE_SIZE + TILE_SIZE);
 }
 
 fn despawn_tiles(mut commands: Commands) {
