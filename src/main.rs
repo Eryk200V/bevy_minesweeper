@@ -178,7 +178,7 @@ fn main() {
                         Window{
                             title: "Minesweeper".to_string(),
                             resolution: WindowResolution::new(EAZY_BOARD_SIZE.1 as f32 * TILE_SIZE, EAZY_BOARD_SIZE.0 as f32 * TILE_SIZE + TILE_SIZE),
-                            fit_canvas_to_parent: true,
+                            fit_canvas_to_parent: false,
                             resizable: false,
                             ..default()
                         }),
@@ -224,7 +224,7 @@ pub fn spawn_camera(
 ) {
     let window = window_query.get_single().unwrap();
     println!("Resolution {:?}", window.resolution);
-    
+
 
     commands.spawn((
         Camera2dBundle {
