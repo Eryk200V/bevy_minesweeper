@@ -22,8 +22,9 @@
   </head>
   
   <body>
-    <h1>Dupsko</h1>
+    <h1>MineSweeper</h1>
     <script type="module">
+    window.addEventListener("contextmenu", e => e.preventDefault());
       import init from './out/saper.js'
       init()
     </script>
