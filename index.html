@@ -11,7 +11,7 @@
     </style>
   </head>
   <body>
-    <h1 style="color:#009999;">Pinball2D23</h1>
+    <h1 style="color:#009999;">Minesweeper</h1>
     <p style="font-size:14px; color:#009999; font-weight:bold; font-style:italic;">
         Launch ball: Space<br>
         Flippers: Left/Right arrow<br><br>
@@ -29,30 +29,7 @@
 
   <script>
     window.addEventListener("contextmenu", e => e.preventDefault()); 
-    //Force focus to game-canvas.  
-    const targetNode = document.documentElement || document.body;
-    const config = {childList: true, subtree: true};
-
-    const callback = function(mutationsList, observer) {
-        for(let mutation of mutationsList) {
-            if (mutation.type === 'childList') {
-                // Elements have changed
-                let canvas = document.querySelector("canvas");
-                if (canvas !== null)
-                {
-                    canvas.focus();
-                    canvas.onblur = function() {
-                    var me = this;
-                    setTimeout(function() {
-                    me.focus();
-                    }, 50);
-                }
-                }
-            }
-        }
-    };
-
-    const observer = new MutationObserver(callback);
-    observer.observe(targetNode, config);
+    document.querySelector("canvas").width = "380px";
+    document.querySelector("canvas").height = "418px"
   </script>
 </html>
