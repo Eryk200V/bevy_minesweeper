@@ -2,6 +2,11 @@
 
 //cargo build --target=x86_64-pc-windows-gnu --release
 
+/*
+cargo build --release --target wasm32-unknown-unknown
+wasm-bindgen --out-dir ./out/ --web target/wasm32-unknown-unknown/release/saper.wasm
+*/
+
 use bevy::{prelude::*, window::{PrimaryWindow, WindowResolution}};
 //use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use rand::{thread_rng, Rng};
@@ -48,9 +53,9 @@ struct ButtonPositions {
 struct Safe { cords: (u8, u8) }
 
 #[derive(Resource)]
-pub struct MapInfo { 
-    pub board_size: (u8, u8),
-    pub bomb_count: u8, 
+struct MapInfo { 
+    board_size: (u8, u8),
+    bomb_count: u8, 
 }
 
 
@@ -178,7 +183,7 @@ fn main() {
                         Window{
                             title: "Minesweeper".to_string(),
                             resolution: WindowResolution::new(EAZY_BOARD_SIZE.1 as f32 * TILE_SIZE, EAZY_BOARD_SIZE.0 as f32 * TILE_SIZE + TILE_SIZE),
-                            fit_canvas_to_parent: false,
+                            fit_canvas_to_parent: true,
                             resizable: false,
                             ..default()
                         }),
@@ -219,12 +224,10 @@ fn main() {
 
 pub fn spawn_camera(
     mut commands: Commands, 
-    mut window_query: Query<&mut Window>,
-    map_info: ResMut<MapInfo>
+    window_query: Query<&Window>
 ) {
     let window = window_query.get_single().unwrap();
     println!("Resolution {:?}", window.resolution);
-
 
     commands.spawn((
         Camera2dBundle {
@@ -237,8 +240,6 @@ pub fn spawn_camera(
         },
         Name::new("Main Camera")
     ));
-    
-    window_query.single_mut().resolution = WindowResolution::new(map_info.board_size.1 as f32 * TILE_SIZE, map_info.board_size.0 as f32 * TILE_SIZE + TILE_SIZE);
 }
 
 fn despawn_tiles(mut commands: Commands) {
