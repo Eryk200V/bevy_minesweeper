@@ -2,10 +2,9 @@
 
 //cargo build --target=x86_64-pc-windows-gnu --release
 
-/*
-cargo build --release --target wasm32-unknown-unknown
-wasm-bindgen --out-dir ./out/ --web target/wasm32-unknown-unknown/release/saper.wasm
-*/
+
+//cargo build --target=x86_64-pc-windows-gnu --release && cargo build --release --target wasm32-unknown-unknown && wasm-bindgen --out-dir ./out/ --web target/wasm32-unknown-unknown/release/saper.wasm
+
 
 use bevy::{prelude::*, window::{PrimaryWindow, WindowResolution}};
 //use bevy_inspector_egui::quick::WorldInspectorPlugin;
@@ -83,6 +82,9 @@ struct TileSprites {
     #[asset(path = "sprites/tile_flag2.png")]
     flag: Handle<Image>,
 
+    #[asset(path = "sprites/tile_flag_cross2.png")]
+    flag_cross: Handle<Image>,
+
     #[asset(path = "sprites/tile_bomb2.png")]
     bomb: Handle<Image>,
 
@@ -125,8 +127,8 @@ struct TileSprites {
 pub struct Tile { 
     x: u8,
     y: u8,
-    tile_type: TileType,
     num: u8,
+    bomb: bool,
     covered: bool,
     flag: bool
 }
@@ -134,28 +136,9 @@ pub struct Tile {
 #[derive(Component)]
 pub struct Button;
 
-
-// pub enum ButtonType {
-//     Eazy,
-//     Medium,
-//     Hard,
-//     Expert
-// }
-
-
-#[derive(Component)]
-#[derive(Reflect)]
-#[derive(Debug)]
-#[derive(PartialEq)]
-pub enum TileType{
-    Bomb,
-    Other,
-}
-
 fn main() {
     App::new()
         .register_type::<Tile>()
-        .register_type::<TileType>()
         .insert_resource(Empty{cords: vec!()})
         .insert_resource(Safe{cords: (0,0)})
         .insert_resource(ButtonPositions{
@@ -268,8 +251,8 @@ fn spawn_tiles(
                 Tile{
                     x: j + 1,
                     y: i + 1,
-                    tile_type: TileType::Other,
                     num: 0,
+                    bomb: false,
                     covered: true,
                     flag: false
                 },
@@ -414,14 +397,14 @@ fn set_bombs(
     for mut tile_bomb in tiles.iter_mut() {
         for cords in positions.iter(){
             if (tile_bomb.x, tile_bomb.y) == *cords {
-                tile_bomb.tile_type = TileType::Bomb;
+                tile_bomb.bomb = true;
             }
         }
     }
 
     for mut tile in tiles.iter_mut() {
         for cords in positions.iter() {
-            if tile.tile_type != TileType::Bomb {
+            if !tile.bomb {
                 if (tile.x + 1, tile.y + 1) == *cords {
                     tile.num += 1;
                 }
@@ -470,7 +453,7 @@ fn click_switch(
                     if (position.x > x - CLICK_AREA_SIZE && position.x < x + CLICK_AREA_SIZE) &&
                        (position.y < y + CLICK_AREA_SIZE && position.y > y - CLICK_AREA_SIZE) {
                         tile.covered = false;
-                        if tile.tile_type == TileType::Bomb {
+                        if tile.bomb {
                             *image = tile_sprites.exploded.clone();
                             next_state.set(GameState::GameOver);
                         }
@@ -511,7 +494,7 @@ fn tile_check(
 ) {
     for (tile1, mut image1) in tiles.iter_mut() {
         //println!("{}/{}", tile1.x, tile1.y);
-        if !tile1.covered && tile1.tile_type != TileType::Bomb {
+        if !tile1.covered && !tile1.bomb {
             match tile1.num {
                 0 => {
                     *image1 = tile_sprites.zero.clone();
@@ -555,24 +538,11 @@ fn game_over(
 ) {
     for (tile, mut image) in tiles.iter_mut() {
         
-        if tile.covered && tile.tile_type == TileType::Bomb && !tile.flag{
+        if tile.covered && tile.bomb && !tile.flag{
             *image = tile_sprites.bomb.clone();
-        } //else {
-            //     match tile.num {
-            //         0 => *image = asset_server.load("sprites/tile_empty2.png"),
-            //         1 => *image = asset_server.load("sprites/tile_one2.png"),
-            //         2 => *image = asset_server.load("sprites/tile_two2.png"),
-            //         3 => *image = asset_server.load("sprites/tile_three2.png"),
-            //         4 => *image = asset_server.load("sprites/tile_four2.png"),
-            //         5 => *image = asset_server.load("sprites/tile_five2.png"),
-            //         6 => *image = asset_server.load("sprites/tile_six2.png"),
-            //         7 => *image = asset_server.load("sprites/tile_seven2.png"),
-            //         8 => *image = asset_server.load("sprites/tile_eight2.png"),
-            //         9 => *image = asset_server.load("sprites/tile_nine2.png"),
-            //         _ => panic!(),
-            //     }
-            // }
-        
+        } else if tile.flag && !tile.bomb {
+            *image = tile_sprites.flag_cross.clone();
+        }
     }
 }
 
