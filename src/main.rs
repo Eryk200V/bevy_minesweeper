@@ -2,6 +2,11 @@
 
 //cargo build --target=x86_64-pc-windows-gnu --release
 
+/*
+cargo build --release --target wasm32-unknown-unknown
+wasm-bindgen --out-dir ./out/ --web target/wasm32-unknown-unknown/release/saper.wasm
+*/
+
 use bevy::{prelude::*, window::{PrimaryWindow, WindowResolution}};
 //use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use rand::{thread_rng, Rng};
@@ -178,7 +183,6 @@ fn main() {
                         Window{
                             title: "Minesweeper".to_string(),
                             resolution: WindowResolution::new(EAZY_BOARD_SIZE.1 as f32 * TILE_SIZE, EAZY_BOARD_SIZE.0 as f32 * TILE_SIZE + TILE_SIZE),
-                            fit_canvas_to_parent: true,
                             resizable: false,
                             ..default()
                         }),
