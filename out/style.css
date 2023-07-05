@@ -13,13 +13,13 @@ h1 {
   margin-bottom: 4rem;
 }
 
-#container {
+#test {
   margin: auto;
   border-radius: 0.5rem;
   background-color: #27374D;
   position: relative;
 }
-#container:before, #container:after {
+#test:before, #test:after {
   content: "";
   position: absolute;
   inset: -0.5rem;
@@ -28,7 +28,7 @@ h1 {
   animation: rotation 20s linear infinite;
   z-index: -1;
 }
-#container:after {
+#test:after {
   filter: blur(3.5rem);
 }
 
