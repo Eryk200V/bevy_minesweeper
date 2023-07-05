@@ -31,4 +31,8 @@ h1 {
   filter: blur(3.5rem);
 }
 
+#bevy {
+  display: block;
+}
+
 /*# sourceMappingURL=style.css.map */
