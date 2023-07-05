@@ -16,6 +16,7 @@ h1 {
 #bevy {
   margin: auto;
   border-radius: 0.5rem;
+  border: 5px solid linear-gradient(0deg, #526D82, #9DB2BF, #526D82);
   background-color: #27374D;
   position: relative;
 }
