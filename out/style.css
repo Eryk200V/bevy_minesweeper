@@ -13,14 +13,13 @@ h1 {
   margin-bottom: 4rem;
 }
 
-#bevy {
+#test {
   margin: auto;
   border-radius: 0.5rem;
-  border: 5px solid linear-gradient(0deg, #526D82, #9DB2BF, #526D82);
   background-color: #27374D;
   position: relative;
 }
-#bevy:before, #bevy:after {
+#test:before, #test:after {
   content: "";
   position: absolute;
   inset: -0.5rem;
@@ -29,7 +28,7 @@ h1 {
   animation: rotation 20s linear infinite;
   z-index: -1;
 }
-#bevy:after {
+#test:after {
   filter: blur(3.5rem);
 }
 
