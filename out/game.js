@@ -1,5 +1,10 @@
 import init from './saper.js';
-async function run(){
-  await init()
+function run(){
+  init()
 }  
 run();
+
+
+// async function run(){
+//   await init()
+// }  
