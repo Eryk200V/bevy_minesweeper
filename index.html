@@ -1,34 +1,14 @@
 <!DOCTYPE html>
   <head>
     <meta charset="UTF-8" />
-    <style>
-      body {
-        background-color: #36454F;
-      }
-      *:focus {
-        outline: none;
-      }
-    </style>
     <link rel="icon" href="out/favicon.ico" type = "image/x-icon">
+    <link rel="stylesheet" href = "out/style.css"> 
   </head>
   <body>
-    <h1 style="color:#009999;">Minesweeper</h1>
-    <p style="font-size:14px; color:#009999; font-weight:bold; font-style:italic;">
-        
-        <a href="https://github.com/Eryk200V/bevy_minesweeper" target="_blank">https://github.com/Eryk200V/bevy_minesweeper</a>
-    </p>
+    <h1>Minesweeper</h1>
+    <script type="module" src="out/game.js"/>
+    <script src="out/settings.js"/>
+  
   </body>
-  <script type="module">
-    import init from './out/saper.js';
-    async function run(){
-        await init()
-    }
-    run();
-  </script>
-
-  <script>
-    window.addEventListener("contextmenu", e => e.preventDefault()); 
-    // document.querySelector("canvas").width = "380px";
-    // document.querySelector("canvas").height = "418px"
-  </script>
+  
 </html>
