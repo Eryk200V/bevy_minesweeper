@@ -1,5 +1,9 @@
 body {
-  background-color: "#000000";
+  background-color: "black";
+}
+
+h1 {
+  text-align: center;
 }
 
 /*# sourceMappingURL=style.css.map */
