@@ -10,15 +10,13 @@ h1 {
   margin-bottom: 4rem;
 }
 
-#canvas {
+#test {
   margin: auto;
-  width: 380px;
-  height: 418px;
   border-radius: 0.5rem;
   background-color: #27374D;
   position: relative;
 }
-#canvas:before, #canvas:after {
+#test:before, #test:after {
   content: "";
   position: absolute;
   inset: -0.5rem;
@@ -27,7 +25,7 @@ h1 {
   animation: rotation 20s linear infinite;
   z-index: -1;
 }
-#canvas:after {
+#test:after {
   filter: blur(3.5rem);
 }
 
