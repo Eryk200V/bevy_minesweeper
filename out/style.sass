@@ -1,9 +1,50 @@
-$background: "#27374D" 
-$text: "#9DB2BF"
+$background: #526D82 
+$c1: #27374D
+$c2: #9DB2BF
+$c3: #DDE6ED
+
+$text: $c2
+$test: $c1
+
+
+// @property --gradient-angle
+// 	syntax: "<angle>"
+// 	initial-value: 0deg
+// 	inherits: false
+
+// @keyframes rotation
+// 	0%
+// 		--gradient-angle: 0deg 
+// 	100% 
+// 		--gradient-angle: 360deg 
+		
 	
 body
-	background-color: $background
+	background-color: $c1
+	background-image: url("az-subtle.png")
+	background-repeat: repeat
 
 h1
 	text-align: center
 	color: $text
+	margin-bottom: 4rem
+#canvas
+	margin: auto
+	width: 380px
+	height: 418px
+	border-radius: 0.5rem
+	background-color: $test
+
+	position: relative
+	
+	&:before, &:after
+		content: ""
+		position: absolute
+		inset: -0.5rem
+		background: linear-gradient(0deg, $background, $c2, $background)
+		border-radius: inherit
+		animation: rotation 20s linear infinite
+		z-index: -1
+
+	&:after
+		filter: blur(3.5rem)
