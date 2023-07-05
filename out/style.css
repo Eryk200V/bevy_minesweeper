@@ -10,15 +10,16 @@ body {
 h1 {
   text-align: center;
   color: #9DB2BF;
+  margin-bottom: 4rem;
 }
 
-#test {
+#container {
   margin: auto;
   border-radius: 0.5rem;
   background-color: #27374D;
   position: relative;
 }
-#test:before, #test:after {
+#container:before, #container:after {
   content: "";
   position: absolute;
   inset: -0.5rem;
@@ -27,7 +28,7 @@ h1 {
   animation: rotation 20s linear infinite;
   z-index: -1;
 }
-#test:after {
+#container:after {
   filter: blur(3.5rem);
 }
 
