@@ -166,7 +166,7 @@ fn main() {
                         Window{
                             title: "Minesweeper".to_string(),
                             resolution: WindowResolution::new(EAZY_BOARD_SIZE.1 as f32 * TILE_SIZE, EAZY_BOARD_SIZE.0 as f32 * TILE_SIZE + TILE_SIZE),
-                            canvas: Some("#bevy".to_string()),
+                            canvas: Some("#bevy".to_owned()),
                             resizable: false,
                             ..default()
                         }),
